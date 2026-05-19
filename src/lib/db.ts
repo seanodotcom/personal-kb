@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import mysql from 'mysql2/promise';
+import { createClient } from '@libsql/client';
 
 export interface Thought {
   id: number | string;
@@ -14,50 +14,53 @@ export interface DbClient {
   initDb: () => Promise<void>;
 }
 
-// Ensure the db instance is cached during hot-reloads in development
 let cachedDbClient: DbClient | null = null;
 
 export async function getDb(): Promise<DbClient> {
   if (cachedDbClient) return cachedDbClient;
 
-  const dbUrl = process.env.DATABASE_URL;
-  
-  if (dbUrl && dbUrl.startsWith('mysql://')) {
-    // MySQL Implementation
-    const pool = mysql.createPool(dbUrl);
-    
+  const tursoUrl = process.env.TURSO_CONNECTION_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (tursoUrl) {
+    // Turso Serverless SQLite (for Vercel production)
+    const client = createClient({
+      url: tursoUrl,
+      authToken: tursoToken,
+    });
+
     cachedDbClient = {
       initDb: async () => {
-        await pool.query(`
+        await client.execute(`
           CREATE TABLE IF NOT EXISTS thoughts (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             content TEXT NOT NULL,
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-            source VARCHAR(50) NOT NULL
+            source TEXT NOT NULL
           )
         `);
       },
       insertThought: async (content: string, source: 'voice' | 'text') => {
-        await pool.query(
-          'INSERT INTO thoughts (content, source, createdAt) VALUES (?, ?, NOW())',
-          [content, source]
-        );
+        await client.execute({
+          sql: 'INSERT INTO thoughts (content, source) VALUES (?, ?)',
+          args: [content, source]
+        });
       },
       getThoughts: async (limit = 50) => {
-        const [rows] = await pool.query<any[]>(
-          'SELECT * FROM thoughts ORDER BY createdAt DESC LIMIT ?',
-          [limit]
-        );
-        return rows.map(r => ({
-          id: r.id,
-          content: r.content,
-          createdAt: new Date(r.createdAt),
-          source: r.source,
+        const result = await client.execute({
+          sql: 'SELECT * FROM thoughts ORDER BY createdAt DESC LIMIT ?',
+          args: [limit]
+        });
+        return result.rows.map(r => ({
+          id: r.id as any,
+          content: r.content as string,
+          createdAt: new Date((r.createdAt as string) + (r.createdAt?.toString().endsWith('Z') ? '' : 'Z')),
+          source: r.source as 'voice' | 'text',
         }));
       }
     };
   } else {
-    // SQLite Implementation (Local Development Fallback)
+    // Local SQLite (for local development fallback)
     const db = new Database('local.db');
     db.pragma('journal_mode = WAL');
 
@@ -82,14 +85,14 @@ export async function getDb(): Promise<DbClient> {
         return rows.map(r => ({
           id: r.id,
           content: r.content,
-          createdAt: new Date(r.createdAt + 'Z'), // Ensure it parses as UTC
+          createdAt: new Date(r.createdAt + 'Z'),
           source: r.source,
         }));
       }
     };
   }
 
-  // Ensure table exists
+  // Ensure database schema is ready
   await cachedDbClient.initDb();
   
   return cachedDbClient;
