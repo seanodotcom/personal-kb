@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getDb, Thought } from './db';
+import { sseEmitter } from './events';
 
 export async function addThought(content: string, source: 'voice' | 'text') {
   if (!content || content.trim() === '') {
@@ -12,6 +13,7 @@ export async function addThought(content: string, source: 'voice' | 'text') {
     const db = await getDb();
     await db.insertThought(content.trim(), source);
     revalidatePath('/');
+    sseEmitter.emit('new-thought');
     return { success: true };
   } catch (error) {
     console.error('Failed to insert thought:', error);

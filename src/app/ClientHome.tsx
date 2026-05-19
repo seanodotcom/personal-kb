@@ -27,23 +27,27 @@ export default function ClientHome({ initialThoughts }: ClientHomeProps) {
     setThoughts(initialThoughts);
   }, [initialThoughts]);
 
-  // Poll for new thoughts every 5 seconds to sync multiple devices
+  // Connect to Server-Sent Events stream for real-time updates
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const latest = await getThoughts();
-        setThoughts((prev) => {
-          if (JSON.stringify(prev) !== JSON.stringify(latest)) {
-            return latest;
-          }
-          return prev;
-        });
-      } catch (err) {
-        console.error('Failed to poll thoughts:', err);
-      }
-    }, 5000);
+    const eventSource = new EventSource('/api/thoughts/stream');
 
-    return () => clearInterval(interval);
+    eventSource.onmessage = (event) => {
+      try {
+        const latest = JSON.parse(event.data);
+        setThoughts(latest);
+      } catch (err) {
+        console.error('Failed to parse stream data:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('SSE Connection error:', err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, []);
 
   useEffect(() => {
