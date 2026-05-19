@@ -13,6 +13,7 @@ export default function Home() {
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [recognition, setRecognition] = useState<any>(null);
   const [isSecure, setIsSecure] = useState(true);
+  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -21,7 +22,10 @@ export default function Home() {
 
     // Initialize Speech Recognition
     if (typeof window !== 'undefined') {
-      setIsSecure(window.isSecureContext !== false);
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const isHttps = window.location.protocol === 'https:';
+      const secure = window.isSecureContext !== undefined ? window.isSecureContext : (isHttps || isLocal);
+      setIsSecure(secure);
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const rec = new SpeechRecognition();
@@ -126,6 +130,8 @@ export default function Home() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             placeholder="Type or dictate your thought..."
             className="relative z-10 flex-1 w-full bg-transparent resize-none p-6 text-xl text-white placeholder-slate-500 focus:outline-none focus:ring-0 leading-relaxed no-scrollbar"
           />
@@ -134,7 +140,8 @@ export default function Home() {
           <div className="relative z-10 p-4 flex items-center justify-between border-t border-white/10">
             {recognition ? (
               <button
-                onClick={toggleRecording}
+                onMouseDown={(e) => { e.preventDefault(); toggleRecording(); }}
+                onTouchStart={(e) => { e.preventDefault(); toggleRecording(); }}
                 className={`flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${
                   isRecording 
                     ? 'bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse-fast' 
@@ -162,7 +169,8 @@ export default function Home() {
             )}
 
             <button
-              onClick={handleSave}
+              onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
+              onTouchStart={(e) => { e.preventDefault(); handleSave(); }}
               disabled={!text.trim() || isSaving}
               className="flex items-center justify-center w-12 h-12 rounded-full bg-indigo-500 text-white transition-all duration-300 disabled:opacity-50 disabled:bg-white/10 disabled:text-slate-500 hover:bg-indigo-400 hover:shadow-[0_0_20px_rgba(99,102,241,0.4)]"
             >
@@ -173,30 +181,32 @@ export default function Home() {
       </div>
 
       {/* Recent Thoughts Drawer */}
-      <div className="flex-none max-h-[40dvh] bg-slate-950/80 backdrop-blur-2xl border-t border-white/10 overflow-hidden flex flex-col z-20 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
-        <div className="flex-none p-4 pb-2">
-          <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-4" />
-          <h2 className="text-sm font-medium text-slate-400 px-2">Recent Thoughts</h2>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 pt-0 space-y-3 no-scrollbar">
-          {thoughts.length === 0 ? (
-            <p className="text-slate-500 text-center text-sm py-8">No thoughts yet.</p>
-          ) : (
-            thoughts.map((thought) => (
-              <div key={thought.id} className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{thought.content}</p>
-                <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    {thought.source === 'voice' ? <Mic className="w-3 h-3" /> : null}
-                    {formatDistanceToNow(thought.createdAt, { addSuffix: true })}
-                  </span>
+      {!isFocused && !isRecording && (
+        <div className="flex-none max-h-[40dvh] bg-slate-950/80 backdrop-blur-2xl border-t border-white/10 overflow-hidden flex flex-col z-20 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
+          <div className="flex-none p-4 pb-2">
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-4" />
+            <h2 className="text-sm font-medium text-slate-400 px-2">Recent Thoughts</h2>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 pt-0 space-y-3 no-scrollbar">
+            {thoughts.length === 0 ? (
+              <p className="text-slate-500 text-center text-sm py-8">No thoughts yet.</p>
+            ) : (
+              thoughts.map((thought) => (
+                <div key={thought.id} className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                  <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{thought.content}</p>
+                  <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
+                    <span className="flex items-center gap-1">
+                      {thought.source === 'voice' ? <Mic className="w-3 h-3" /> : null}
+                      {formatDistanceToNow(thought.createdAt, { addSuffix: true })}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }
