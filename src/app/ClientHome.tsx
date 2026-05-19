@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Mic, Send, MicOff, Loader2, Sparkles } from 'lucide-react';
-import { addThought } from '@/lib/actions';
+import { addThought, getThoughts } from '@/lib/actions';
 import type { Thought } from '@/lib/db';
 import { formatDistanceToNow } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 interface ClientHomeProps {
   initialThoughts: Thought[];
@@ -19,6 +20,7 @@ export default function ClientHome({ initialThoughts }: ClientHomeProps) {
   const [isSecure, setIsSecure] = useState(true);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const router = useRouter();
 
   // Sync state with server-revalidated props
   useEffect(() => {
@@ -93,6 +95,13 @@ export default function ClientHome({ initialThoughts }: ClientHomeProps) {
     
     if (result.success) {
       setText('');
+      router.refresh();
+      try {
+        const latest = await getThoughts();
+        setThoughts(latest);
+      } catch (err) {
+        console.error('Failed to get thoughts after save:', err);
+      }
     } else {
       alert('Failed to save: ' + result.error);
     }
