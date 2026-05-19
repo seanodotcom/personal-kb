@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
+    "@prisma/client": "^6.19.3",
     "better-sqlite3": "^12.10.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.2.1",
@@ -28,6 +29,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
