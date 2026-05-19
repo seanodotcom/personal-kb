@@ -27,6 +27,25 @@ export default function ClientHome({ initialThoughts }: ClientHomeProps) {
     setThoughts(initialThoughts);
   }, [initialThoughts]);
 
+  // Poll for new thoughts every 5 seconds to sync multiple devices
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const latest = await getThoughts();
+        setThoughts((prev) => {
+          if (JSON.stringify(prev) !== JSON.stringify(latest)) {
+            return latest;
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.error('Failed to poll thoughts:', err);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     // Initialize Speech Recognition
     if (typeof window !== 'undefined') {
